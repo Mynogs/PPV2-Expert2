@@ -1,0 +1,71 @@
+-- 08.08.2019 09:08:05 AR V1.0a
+
+block.setSize(151, 51)
+
+generic = {
+  name = 'PT100',
+  parameter = {
+  },
+
+  init = function(self)
+    block.needPPVersion(2, 2, 'c')
+    block.setInputsPinCount(0)
+    block.setOutputsPinCount(2)
+    for i = 1, 2 do
+      block.setOutputPinName(i, 'Temp' .. i)
+    end
+    block.modifyFlags('SupressStopFunctionCall', true)
+  end,
+
+  open = function(self)
+    gui.add('Info', 'Info', self.name, [[
+]])
+    gui.setSize()
+  end,
+
+
+  apply = function(self)
+  end,
+
+  close = function()
+  end,
+
+  avatar = function(self)
+    return block.getDefaultAvatar{
+      Type = 0x02,
+      CenterDrawSource = [[
+        draw.setColorA(1, 1, 1)
+        draw.text(0, 0, w, h, "]] .. self.name .. [[", 4)
+      ]],
+      FillColorSource = '0.04, 0.3, 0.56',
+      PinNameColorSource = '1, 1, 1',
+    }
+  end,
+
+  generate = function(self, remote)
+    if not remote then
+      return false
+    end
+    local _, _, group = remote:find('(%w*)')
+    if group ~= 'ESP32' then
+      return false
+    end
+
+    local source =
+      [==[
+        local block = {}
+
+        block.start = function()
+        end
+
+        block.step = function(rel1, rel2, rel3, rel4)
+        end
+
+        return block
+      ]==]
+    return source, block.codeInfo('TargetSpecial', 'Lua53')
+  end,
+
+}
+
+
