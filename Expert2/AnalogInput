@@ -16,6 +16,7 @@ generic = {
       block.setOutputPinTypeRestrains(i, 'boolean')
       block.setOutputPinName(i, 'AI' .. i)
     end
+    block.modifyFlags('SupressStartFunctionCall', true)
     block.modifyFlags('SupressStopFunctionCall', true)
   end,
 
@@ -68,10 +69,44 @@ generic = {
       [==[
         local block = {}
 
-        block.start = function()
-        end
-
-        block.step = function(rel1, rel2, rel3, rel4)
+        block.step = function()
+          local q = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}
+          local b = block.parent.i2cBus
+          assert(b, 'Missing I2C Bus block')
+          try (
+            function()
+              if not block.init then
+                print('ADC Init')
+                block.init = true
+                b:start()
+                b:address(0x21, false)
+                b:write(2) -- Configuration
+                b:start()
+                b:address(0x21, false)
+                b:write(0xF0, 0x0F) -- All 8 channels enabled
+                b:stop()
+              end
+              for i = 1, 8 do
+                b:start()
+                b:address(0x21, false)
+                b:write(0x80 | ((i - 1) << 4))
+                b:stop()
+                tmr.delayus(3)
+                b:start()
+                b:address(0x21, true)
+                local v = (b:read() << 8) | b:read()
+                b:stop()
+                local j = ((v >> 12) & 0x07) + 1
+                q[j] = (v & 0x0FFF) / 4095.0;
+              end
+            end,
+            function(where, line, error, message)
+              print(block, false, message)
+            end,
+            function()
+            end
+          )
+          return q[1] * 10.0, q[2] * 10.0, q[3] * 10.0, q[4] * 10.0, q[5] * 2.5, q[6] * 2.5, q[7] * 2.5, q[8] * 2.5
         end
 
         return block
