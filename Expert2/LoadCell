@@ -3,7 +3,7 @@
 block.setSize(151, 51)
 
 generic = {
-  name = 'Analog inputs',
+  name = 'Load Cell',
   parameter = {
   },
 
@@ -14,11 +14,14 @@ generic = {
     for i = 1, 2 do
       block.setOutputPinName(i, 'LC' .. i)
     end
+    block.modifyFlags('SupressStartFunctionCall', true)
     block.modifyFlags('SupressStopFunctionCall', true)
   end,
 
   open = function(self)
     gui.add('Info', 'Info', self.name, [[
+Measure the weight as signed 24bit value.
+To get the wight the value must have a zero point and scale.
 ]])
     gui.setSize()
   end,
@@ -55,10 +58,33 @@ generic = {
       [==[
         local block = {}
 
-        block.start = function()
-        end
-
-        block.step = function(rel1, rel2, rel3, rel4)
+        block.step = function()
+          local b = block.parent.i2cBus
+          assert(b, 'Missing I2C Bus block')
+          local q = {0, 0}
+          for i = 1, 2 do
+            try (
+              function()
+                b:start()
+                b:address(0x08, false)
+                b:write(i + 2)
+                b:start()
+                b:address(0x08, true)
+                local ll, lh, hl, hh = b:read(), b:read(), b:read(), b:read()
+                b:stop()
+                q[i] = ll | (lh << 8) | (hl << 16) | (hh << 24)
+                if (q[i] & 0x8000000) ~= 0 then
+                  q[i] = q[i] | 0xFFFFFFFF00000000
+                end
+              end,
+              function(where, line, error, message)
+                print(where, line, error, message)
+              end,
+              function()
+              end
+            )
+          end
+          return q[1], q[2]
         end
 
         return block
